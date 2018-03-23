@@ -4,5 +4,5 @@ All this does at the moment is check a directory for new json files and if a new
 
 TODO:
 I want this to run either in a proper daemon or have it run in a ncurses app to have some output for the tracking
-being able to manually add 
+being able to manually add tracker maybe come in the future
 
