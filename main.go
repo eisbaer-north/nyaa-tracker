@@ -106,11 +106,23 @@ func downloadTorrent (url string, path string, prefix string) {
 	}
 	log.Println(prefix, "downloaded", filename)
 }
-
+func start_existing(path string) {
+	files, err :=  ioutil.ReadDir(path)
+	if err != nil {
+		log.Fatal(err)
+	}
+	for _, file := range files{
+		filepath := path+"/"+file.Name()
+		create_tracker(filepath)
+	}
+}
 func main() {
+	tracker_path := "/home/eisbaer/nyaa-tracker"
+	//Start already existing trackers
+	start_existing(tracker_path)
 	//Creating Channel for notify checking the directory for new trackerfiles
 	c := make(chan notify.EventInfo, 1)
-	if err := notify.Watch("/home/eisbaer/nyaa-tracker", c, notify.InCreate, notify.Remove); err != nil {
+	if err := notify.Watch(tracker_path, c, notify.InCreate, notify.Remove); err != nil {
 		log.Fatal(err)
 	}
 	defer notify.Stop(c)
