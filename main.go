@@ -8,6 +8,7 @@ import (
 	"io"
 	"io/ioutil"
 	"net/http"
+	"./tracker"
 	"encoding/json"
 	"github.com/rjeczalik/notify"
 	"github.com/mmcdole/gofeed"
@@ -15,12 +16,17 @@ import (
 
 const root = "/home/eisbaer/torrent-files/"
 
-type Tracker struct{
+type Tracker struct {
 	Name string
 	Path string
 	Rss string
 	Interval int64
 	Active bool
+}
+
+type Config struct {
+	Path string
+	Autostart bool
 }
 
 func create_tracker(path string) {
@@ -115,6 +121,9 @@ func start_existing(path string) {
 		filepath := path+"/"+file.Name()
 		create_tracker(filepath)
 	}
+}
+func load_config() {
+
 }
 func main() {
 	tracker_path := "/home/eisbaer/nyaa-tracker"
