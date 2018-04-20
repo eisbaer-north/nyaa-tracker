@@ -10,6 +10,7 @@ import (
 	"io/ioutil"
 	"encoding/json"
 	"github.com/mmcdole/gofeed"
+	"github.com/rjeczalik/notify"
 )
 
 type Tracker struct {
@@ -46,7 +47,7 @@ func (t Tracker) StartTracking() {
 				}
 			}
 		}
-		time.Sleep(time.Duration(t.Interval) * time.Second)
+		time.Sleep(time.Duration(t.Interval) * time.Minute)
 	}
 }
 
@@ -71,6 +72,20 @@ func (t Tracker) DownloadTorrent(link string) {
 		log.Fatal(err)
 	}
 	t.Out <- t.Prefix + " downloaded " + filename
+}
+
+func (t Tracker) fileWatcher() {
+	c := make(chan notify.EventInfo, 1)
+	if err  := notify.Watch(t.Path, c, notify.InModify); err != nil {
+		log.Fatal(err)
+	}
+	defer notify.Stop(c)
+	for {
+		switch event := <-c; event.Event() {
+			case notify.InModify:
+				t.In <- "tracker-changed"
+		}
+	}
 }
 
 func CreateTracker(path string) Tracker {
