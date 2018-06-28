@@ -26,18 +26,17 @@ type Tracker struct {
 
 func (t Tracker) StartTracking() {
 	os.MkdirAll(t.Path, 0700)
-	t.Prefix = "\033[36m" + t.Name + ":\033[0m "
 	for {
 		if t.Active {
-			t.Out <-t.Prefix + "Checking for new torrents"
+			t.Out <- "keepalive"
 			rssparser := gofeed.NewParser()
 			feed, err := rssparser.ParseURL(t.Rss)
 			if err != nil {
-				log.Fatal(err)
+				t.Out <-err.Error()
 			}
 			files, err := ioutil.ReadDir(t.Path)
 			if err != nil {
-				log.Fatal(err)
+				t.Out <- err.Error()
 			}
 			for _, i := range feed.Items {
 				url_slice := strings.Split(i.Link, "/")
@@ -57,21 +56,23 @@ func (t Tracker) DownloadTorrent(link string) {
 
 	output, err := os.Create(t.Path+filename)
 	if err != nil {
-		log.Fatal(err)
+		t.Out <- err.Error()
 	}
 	defer output.Close()
 
 	//Get response body
 	response, err := http.Get(link)
-	if err != nil {
-		log.Fatal(err)
+	for err != nil {
+		t.Out <- err.Error()
+		time.Sleep(time.Duration(t.Interval) * time.Second)
+		response, err = http.Get(link)
 	}
 	defer response.Body.Close()
 	_, err = io.Copy(output, response.Body)
 	if err != nil {
-		log.Fatal(err)
+		t.Out <- err.Error()
 	}
-	t.Out <- t.Prefix + " downloaded " + filename
+	t.Out <- filename
 }
 
 func (t Tracker) fileWatcher() {
@@ -110,8 +111,10 @@ func LoadTracker(path string) []Tracker {
 		log.Fatal(err)
 	}
 	for _, file := range files {
-		filepath := path + "/" + file.Name()
-		trackers = append(trackers, CreateTracker(filepath))
+		if file.IsDir() == false {
+			filepath := path + "/" + file.Name()
+			trackers = append(trackers, CreateTracker(filepath))
+		}
 	}
 	return trackers
 }
