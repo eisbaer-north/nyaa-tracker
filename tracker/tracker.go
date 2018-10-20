@@ -32,11 +32,18 @@ func (t Tracker) StartTracking() {
 			rssparser := gofeed.NewParser()
 			feed, err := rssparser.ParseURL(t.Rss)
 			if err != nil {
-				t.Out <-err.Error()
+				t.Out <- "feed error"
+				time.Sleep(time.Duration(t.Interval) * time.Minute)
+				feed, err = rssparser.ParseURL(t.Rss)
+				if err != nil{
+					t.Out <- "2nd feed error"
+					log.Fatal(err)
+				}
 			}
 			files, err := ioutil.ReadDir(t.Path)
 			if err != nil {
-				t.Out <- err.Error()
+				t.Out <- "files error"
+				log.Fatal(err)
 			}
 			for _, i := range feed.Items {
 				url_slice := strings.Split(i.Link, "/")
@@ -62,17 +69,20 @@ func (t Tracker) DownloadTorrent(link string) {
 
 	//Get response body
 	response, err := http.Get(link)
-	for err != nil {
-		t.Out <- err.Error()
-		time.Sleep(time.Duration(t.Interval) * time.Second)
-		response, err = http.Get(link)
-	}
-	defer response.Body.Close()
-	_, err = io.Copy(output, response.Body)
 	if err != nil {
-		t.Out <- err.Error()
+		t.Out <- "Download error"
+		log.Fatal(err)
+		//t.Out <- err.Error()
+		time.Sleep(time.Duration(t.Interval) * time.Second)
+	} else {
+		_, err = io.Copy(output, response.Body)
+		if err != nil {
+			log.Fatal(err)
+			//t.Out <- err.Error()
+		}
+		t.Out <- "\t\t\t\t\t"+filename
+		response.Body.Close()
 	}
-	t.Out <- filename
 }
 
 func (t Tracker) fileWatcher() {
@@ -104,7 +114,7 @@ func CreateTracker(path string) Tracker {
 	return tracker
 }
 
-func LoadTracker(path string) []Tracker {
+func LoadTrackers(path string) []Tracker {
 	var trackers []Tracker
 	files, err := ioutil.ReadDir(path)
 	if err != nil {

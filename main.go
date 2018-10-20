@@ -7,7 +7,10 @@ import (
 	conf "github.com/eisbaer-north/nyaa-tracker/config"
 	trac "github.com/eisbaer-north/nyaa-tracker/tracker"
 	gc "github.com/rthornton128/goncurses"
+	"github.com/rjeczalik/notify"
 )
+
+var Config conf.Config
 
 func printTracker(stdscr *gc.Window, t trac.Tracker, row int) {
 	for {
@@ -19,12 +22,11 @@ func printTracker(stdscr *gc.Window, t trac.Tracker, row int) {
 		case "keepalive":
 			stdscr.MovePrint(4+row, 40, time.Now().Format("2006-01-02 15:04:05"))
 		default:
-			stdscr.MovePrint(4+row, 40, time.Now().Format("2006-04-15 15:04:05") + "\t" + msg)
+			stdscr.MovePrint(4+row, 40, time.Now().Format("2006-04-15 15:04:05") + "\t" + msg + " " + time.Now().Format("2006-04-15 15:04:05"))
 		}
 		stdscr.Refresh()
 	}
 }
-
 func printTitle(stdscr *gc.Window, title string) {
 	_, cols := stdscr.MaxYX()
 	spacing := strings.Repeat(" ", ((cols - len(title)) / 2) - 1 )
@@ -40,6 +42,26 @@ func printColHeadings(stdscr *gc.Window) {
 	stdscr.MovePrint(2, 0, "Name")
 	stdscr.MovePrint(2, 40, "last Update")
 	stdscr.MovePrint(2, 64, "last episode")
+}
+
+func dirWatcher(stdscr *gc.Window, row int) {
+	c:= make(chan notify.EventInfo, 1)
+	if err := notify.Watch(Config.Path, c ,notify.InCreate); err != nil {
+		log.Fatal(err)
+	}
+	defer notify.Stop(c)
+
+	for {
+		switch event := <-c; event.Event() {
+			case notify.InCreate:
+				time.Sleep(time.Second)
+				tracker := trac.CreateTracker(event.Path())
+				go tracker.StartTracking()
+				go printTracker(stdscr, tracker, row)
+				row = row + 1
+				time.Sleep(time.Second)
+		}
+	}
 }
 
 func main () {
@@ -74,17 +96,17 @@ func main () {
 	//Set the default configuration path
 	config_path_file := "./config.json"
 	//Load the configuration 
-	config := conf.LoadConfig(config_path_file)
-	if config.Autostart {
-		trackers := trac.LoadTracker(config.Path)
-		for row ,tracker := range trackers {
+	Config = conf.LoadConfig(config_path_file)
+	var row int
+	var tracker trac.Tracker
+	if Config.Autostart {
+		trackers := trac.LoadTrackers(Config.Path)
+		for row,tracker = range trackers {
 			go tracker.StartTracking()
 			go printTracker(stdscr, tracker, row)
 			time.Sleep(time.Second)
 		}
 	}
+	go dirWatcher(stdscr, row+1)
 	stdscr.GetChar()
-	/*for {
-		time.Sleep(10 * time.Second)
-	}*/
 }
